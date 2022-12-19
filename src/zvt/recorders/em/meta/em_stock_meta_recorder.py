@@ -13,7 +13,7 @@ class EMStockRecorder(Recorder):
 
     def run(self):
         for exchange in [Exchange.sh, Exchange.sz]:
-            df = em_api.get_tradable_list(entity_type="stock", exchange=exchange)
+            df = em_api.get_tradable_list(entity_type="stock", exchange=exchange, limit=20000)
             self.logger.info(df)
             df_to_db(df=df, data_schema=self.data_schema, provider=self.provider, force_update=self.force_update)
 

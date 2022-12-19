@@ -1,0 +1,473 @@
+---
+title: "Coal"
+author: "yyaadet2002"
+date: '2022-10-25'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Coal analysis
+
+library
+
+```{r}
+library(knitr)
+library(dplyr)
+library(ggplot2)
+library(pinyin)
+library(zoo)
+library(plotly)
+library(TTR)
+library(quantmod)
+```
+
+
+Load data.
+
+```{r}
+df = read.csv("coal.csv")
+df$timestamp = as.Date(df$timestamp)
+df$name = py(df$name, dic = pydic(only_first_letter = T, method = "toneless", dic = "pinyin"), sep = "")
+df$market_value = df$close * df$volume
+head(df)
+```
+# Summary all stocks.
+
+codes.
+
+```{r}
+df %>%
+  group_by(entity_id, name) %>%
+  summarise(count=n(), 
+            list_date = min(timestamp),
+            open = mean(open), 
+            close = mean(close),
+            last_date = max(timestamp),
+            market_value = mean(market_value)) %>%
+  arrange(desc(market_value))
+```
+
+summary.
+
+```{r}
+summary(df)
+```
+
+
+plot
+
+```{r}
+
+# close
+df %>%
+  filter(timestamp > as.Date("2019-01-01")) %>%
+  ggplot(aes(x = timestamp, y=close, color=name)) + 
+  geom_line() + 
+  labs(title="Close After 2019-01-01")
+
+# turnover
+df %>%
+  filter(timestamp > as.Date("2019-01-01")) %>%
+  ggplot(aes(x = timestamp, y=turnover, color=name)) + 
+  geom_line() + 
+  labs(title = "turnover After 2019-01-01")
+
+
+# volume
+df %>%
+  filter(timestamp > as.Date("2019-01-01")) %>%
+  ggplot(aes(x = timestamp, y=volume, color=name)) + 
+  geom_line() + 
+  labs(title = "volume After 2019-01-01")
+
+# market value
+df %>%
+  filter(timestamp > as.Date("2019-01-01")) %>%
+  ggplot(aes(x = timestamp, y=market_value, color=name)) + 
+  geom_line() + 
+  labs(title = "market value After 2019-01-01")
+```
+
+correlations.
+
+```{r}
+names = unique(df$name)
+start = as.Date("2020-01-01")
+df.corr = NULL
+
+for(i in 1:length(names)) {
+  df.entity = df[which(df$name == names[i] & df$timestamp > start), ]
+  df.entity.sub = subset(df.entity, select = c(timestamp, close))
+  colnames(df.entity.sub) = c("ts", names[i])
+  if(is.null(df.corr)) {
+    df.corr = df.entity.sub
+  } else {
+    df.corr = merge(df.corr, df.entity.sub, by = "ts")
+  }
+}
+
+
+df.corr %>%
+  subset(select = -ts) %>%
+  cor()
+
+head(df.corr)
+
+```
+
+Computer returns.
+
+```{r}
+df.returns = df.corr
+df.returns$weekday = strftime(df.returns$ts, "%u")
+for (i in 2:nrow(df.returns)) {
+  df.returns[i, "mjny_return"] = 
+    df.returns$mjny[i] / df.returns$mjny[i-1] - 1
+  
+  df.returns[i, "sxjm_return"] = 
+    df.returns$sxjm[i] / df.returns$sxjm[i-1] - 1
+  
+  df.returns[i, "ytny_return"] = 
+    df.returns$ytny[i] / df.returns$ytny[i-1] - 1
+  
+  df.returns[i, "ykny_return"] = 
+    df.returns$ykny[i] / df.returns$ykny[i-1] - 1
+  
+  df.returns[i, "zgsh_return"] = 
+    df.returns$zgsh[i] / df.returns$zgsh[i-1] - 1
+  
+  df.returns[i, "sxmy_return"] = 
+    df.returns$sxmy[i] / df.returns$sxmy[i-1] - 1
+}
+
+head(df.returns)
+```
+Plot returns.
+
+```{r}
+df.returns %>%
+  ggplot(aes(x=ts, y=zgsh_return)) + 
+  geom_line()
+```
+
+Weekday return.
+
+```{r}
+df.returns %>%
+  na.omit() %>%
+  group_by(weekday) %>%
+  summarise(
+    mjny_return = mean(mjny_return),
+    sxjm_return = mean(sxjm_return),
+    ytny_return = mean(ytny_return),
+    ykny_return = mean(ykny_return),
+    zgsh_return = mean(zgsh_return),
+    sxmy_return = mean(sxmy_return)
+    ) %>%
+  arrange(weekday)
+```
+
+Weekday positive proportion.
+
+```{r}
+df.returns %>%
+  na.omit() %>%
+  mutate(mjny_pos = ifelse(mjny_return > 0, 1, 0),
+         sxjm_pos = ifelse(sxjm_return > 0, 1, 0),
+         ytny_pos = ifelse(ytny_return > 0, 1, 0),
+         ykny_pos = ifelse(ykny_return > 0, 1, 0),
+         zgsh_pos = ifelse(zgsh_return > 0, 1, 0),
+         sxmy_pos = ifelse(sxmy_return > 0, 1, 0),) %>%
+  group_by(weekday) %>%
+  summarise(
+    mjny_prop = sum(mjny_pos) / n(),
+    sxjm_prop = sum(sxjm_pos) / n(),
+    ytny_prop = sum(ytny_pos) / n(),
+    ykny_prop = sum(ykny_pos) / n(),
+    zgsh_prop = sum(zgsh_pos) / n(),
+    sxmy_prop = sum(sxmy_pos) / n(),
+    n = n()
+  ) %>%
+  arrange(weekday)
+
+```
+
+Weekday positive proportion p-values.
+
+```{r}
+df.pos.weekdays = df.returns %>%
+  na.omit() %>%
+  mutate(mjny_pos = ifelse(mjny_return > 0, 1, 0),
+         sxjm_pos = ifelse(sxjm_return > 0, 1, 0),
+         ytny_pos = ifelse(ytny_return > 0, 1, 0),
+         ykny_pos = ifelse(ykny_return > 0, 1, 0),
+         zgsh_pos = ifelse(zgsh_return > 0, 1, 0),
+         sxmy_pos = ifelse(sxmy_return > 0, 1, 0),) %>%
+  group_by(weekday) %>%
+  summarise(
+    mjny_pos = sum(mjny_pos),
+    sxjm_pos = sum(sxjm_pos),
+    ytny_pos = sum(ytny_pos),
+    ykny_pos = sum(ykny_pos),
+    zgsh_pos = sum(zgsh_pos),
+    sxmy_pos = sum(sxmy_pos),
+    n = n()
+  ) %>%
+  arrange(weekday)
+
+
+# test zgsh Monday
+prop.test(df.pos.weekdays$zgsh_pos[1], df.pos.weekdays$n[1], p=0.7, alternative = "greater")
+
+
+```
+
+# Move Average
+
+ZGSH.
+
+```{r}
+
+# plotly MA50 / MA200
+
+ma.zgsh = df %>%
+  filter(name == "zgsh") %>%
+  filter(timestamp > as.Date("2019-01-01")) %>%
+  arrange(timestamp) %>%
+  mutate(ma10 = rollmean(close, k=10, fill = NA, align = "right")) %>%
+  mutate(ma20 = rollmean(close, k=20, fill = NA, align = "right")) %>%
+  mutate(ma50 = rollmean(close, k=50, fill = NA, align = "right")) %>%
+  mutate(ma100 = rollmean(close, k=100, fill = NA, align = "right")) %>%
+  mutate(ma200 = rollmean(close, k = 200, fill = NA, align = "right"))
+
+tail(ma.zgsh)
+
+ma.zgsh %>%
+  plot_ly(x = ~timestamp) %>%
+  add_trace(y = ~close, name = "close", mode = "lines") %>%
+  add_trace(y = ~ma10, name = "ma10", mode = "lines") %>%
+  add_trace(y = ~ma20, name = "ma20", mode = "lines") %>%
+  add_trace(y = ~ma50, name = "ma50", mode = "lines") %>%
+  add_trace(y = ~ma100, name = "ma100", mode = "lines") %>%
+  add_trace(y = ~ma200, name = "ma200", mode = "lines")
+
+
+```
+
+
+NDSD.
+
+```{r}
+
+# plotly MA50 / MA200
+
+df %>%
+  filter(name == "ndsd") %>%
+  filter(timestamp > as.Date("2018-01-01")) %>%
+  mutate(ma50 = rollmean(close, k=50, fill = NA, align = "right")) %>%
+  mutate(ma200 = rollmean(close, k = 200, fill = NA, align = "right")) %>%
+  plot_ly(x = ~timestamp, name = "ndsd") %>%
+  add_trace(y = ~close, name = "close", mode = "lines") %>%
+  add_trace(y = ~ma50, name = "ma50", mode = "lines") %>%
+  add_trace(y = ~ma200, name = "ma200", mode = "lines")
+
+```
+
+HYGY.
+
+```{r}
+df %>%
+  filter(name == "hygy") %>%
+  filter(timestamp > as.Date("2018-01-01")) %>%
+  mutate(ma50 = rollmean(close, k=50, fill = NA, align = "right")) %>%
+  mutate(ma200 = rollmean(close, k = 200, fill = NA, align = "right")) %>%
+  plot_ly(x = ~timestamp, name = "hygy") %>%
+  add_trace(y = ~close, name = "close", mode = "lines") %>%
+  add_trace(y = ~ma50, name = "ma50", mode = "lines") %>%
+  add_trace(y = ~ma200, name = "ma200", mode = "lines")
+```
+
+# ADX
+
+ZGSH.
+
+```
+head(df.zgsh)
+
+get_adx = function (data, peroid = 14) {
+  # align is right
+  ret = list()
+  data$dm.plus = 0
+  data$dm.minus = 0
+  data$tr = 0
+  
+  for (i in 2:nrow(data)) {
+    current = data[i, ]
+    prev = data[i-1, ]
+    
+    data$dm.plus[i] = ifelse(current$high - prev$high > current$low - prev$low,
+                             current$high - prev$high,
+                             0)
+    data$dm.minus[i] = ifelse(prev$low - current$low > current$high - prev$high,
+                              prev$low - current$low,
+                              0)
+    data$tr[i] = max(current$high - prev$close, current$low - prev$close)
+    data$di.plus[i] = 100 * data$dm.plus[i] / (peroid * data$tr[i])
+    data$di.minus[i] = 100 * data$dm.minus[i] / (peroid * data$tr[i])
+    data$dx[i] = ifelse(data$di.plus[i] + data$di.minus[i] == 0, 
+                        0,
+                        abs(data$di.plus[i] - data$di.minus[i]) / abs(data$di.plus[i] + data$di.minus[i]))
+    
+  }
+  
+  # adx computation
+  for (i in 2:nrow(data)) {
+    if (i == 2) {
+      data$adx[i] = sum(data$dx[i : i + peroid - 1]) / peroid
+    } else {
+      data$adx[i] = (data$dx[i] + (peroid - 1) * data$adx[i-1]) / peroid
+    }
+  }
+  
+  data
+}
+
+
+get_adx(df.zgsh)
+
+```
+
+other adx library.
+
+```
+ADX(as.matrix(df.zgsh[, c("high", "low", "close")]))
+```
+
+ZGSH Plot.
+
+```{r}
+df.zgsh = df[which(df$name == "zgsh"), ]
+zgsh.adx = ADX(as.matrix(df.zgsh[, c("high", "low", "close")]))
+df.zgsh$di.p = zgsh.adx[, "DIp"]
+df.zgsh$di.n = zgsh.adx[, "DIn"]
+df.zgsh$adx = zgsh.adx[, "ADX"]
+
+df.zgsh %>%
+  filter(timestamp > as.Date("2022-10-01")) %>%
+  plot_ly(x = ~timestamp, name = "zgsh") %>%
+  add_trace(y = ~adx, name = "adx", mode = "lines") %>%
+  add_trace(y = ~di.p, name = "DIp", mode = "lines") %>%
+  add_trace(y = ~di.n, name = "DIn", mode = "lines") %>%
+  add_trace(y = ~close, name = "Close", mode = "lines") 
+  
+```
+
+# Buy or sell signals
+
+zgsh.
+
+```{r}
+
+get_signals = function(data) {
+  data$ma10 = rollmean(data$close, k=10, fill = NA, align = "right")
+  data$ma20 = rollmean(data$close, k=20, fill = NA, align = "right")
+  data$ma50 = rollmean(data$close, k=50, fill = NA, align = "right")
+  data$ma100 = rollmean(data$close, k=100, fill = NA, align = "right")
+  data$ma200 = rollmean(data$close, k=200, fill = NA, align = "right")
+    
+  adx = ADX(as.matrix(data[, c("high", "low", "close")]))
+  data$adx = adx[, "ADX"]
+  
+  last = tail(data, 100)
+  
+  for (i in 1:nrow(last)) {
+    if (last$ma10[i] > last$ma20[i] & 
+        last$ma20[i] > last$ma50[i] &
+        last$ma50[i] > last$ma100[i] &
+        last$ma100[i] > last$ma200[i]) {
+      last$signal[i] = "buy"
+    } else if (last$ma10[i] < last$ma20[i] &
+        last$ma20[i] < last$ma50[i] &
+        last$ma50[i] < last$ma100[i] &
+        last$ma100[i] < last$ma200[i]) {
+      last$signal[i] = "sell"
+    } else {
+      last$signal[i] = "no"
+    }
+    
+    last$adx_signal[i] = ifelse(last$adx[i] > 20, T, F)
+    last$final_signal[i] = ifelse(last$adx_signal[i] == T & last$signal[i] != "no", T, F)
+
+  }
+  
+  last
+}
+
+df %>%
+  filter(name == "zgsh") %>%
+  get_signals() %>%
+  select(c(timestamp, adx, signal, adx_signal, final_signal)) %>%
+  arrange(desc(timestamp))
+```
+
+sxmy
+
+```{r}
+df %>%
+  filter(name == "sxmy") %>%
+  get_signals() %>%
+  select(c(timestamp, adx, signal, adx_signal, final_signal)) %>%
+  arrange(desc(timestamp))
+```
+
+sxjm
+
+```{r}
+df %>%
+  filter(name == "sxjm") %>%
+  get_signals() %>%
+  select(c(timestamp, adx, signal, adx_signal, final_signal)) %>%
+  arrange(desc(timestamp))
+```
+
+
+HYGY.
+
+```{r}
+
+df %>%
+  filter(name == "hygy") %>%
+  get_signals() %>%
+  select(c(timestamp, adx, signal, adx_signal, final_signal)) %>%
+  arrange(desc(timestamp))
+```
+
+NDSD.
+
+```{r}
+
+df %>%
+  filter(name == "ndsd") %>%
+  get_signals() %>%
+  select(c(timestamp, adx, signal, adx_signal, final_signal)) %>%
+  arrange(desc(timestamp))
+```
+
+gfly.
+
+```{r}
+
+df %>%
+  filter(name == "gfly") %>%
+  get_signals() %>%
+  select(c(timestamp, adx, signal, adx_signal, final_signal)) %>%
+  arrange(desc(timestamp))
+```
+
+# Reference
+
+- https://school.stockcharts.com/doku.php?id=technical_indicators:average_directional_index_adx

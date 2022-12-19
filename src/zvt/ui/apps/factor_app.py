@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import List
+import logging
 
 import dash_core_components as dcc
 import dash_daq as daq
@@ -17,6 +18,8 @@ from zvt.domain import TraderInfo
 from zvt.ui import zvt_app
 from zvt.ui.components.dcc_components import get_account_stats_figure
 from zvt.utils import pd_is_not_null
+
+logger = logging.getLogger(__name__)
 
 account_readers = []
 order_readers = []
@@ -55,6 +58,7 @@ def load_traders():
         )
 
     trader_names = [item.trader_name for item in traders]
+    logger.info(f"trader names {trader_names}")
 
 
 load_traders()

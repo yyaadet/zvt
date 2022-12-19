@@ -275,7 +275,8 @@ class Mixin(object):
                         adjust_type = items[2]
                         kw["adjust_type"] = adjust_type
                     level = IntervalLevel(items[1])
-                except:
+                except Exception as e:
+                    print("warning: {}".format(e))
                     #: for other schema not with normal format,but need to calculate size for remaining days
                     level = IntervalLevel.LEVEL_1DAY
 
@@ -287,11 +288,9 @@ class Mixin(object):
 
                 r = recorder_class(**kw)
                 r.run()
-                return
             else:
                 r = recorder_class(**kw)
                 r.run()
-                return
         else:
             print(f"no recorders for {cls.__name__}")
 

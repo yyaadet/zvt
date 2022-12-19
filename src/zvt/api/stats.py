@@ -484,7 +484,9 @@ __all__ = [
     "get_performance_stats_by_month",
     "get_performance_stats",
     "get_top_volume_entities",
+    "get_top_turnover_rate_entities",
     "get_top_entities",
     "show_month_performance",
     "show_industry_composition",
+    "get_change_ratio",
 ]

@@ -72,7 +72,8 @@ class JqChinaStockKdataRecorder(FixedCycleDataRecorder):
 
         self.adjust_type = adjust_type
 
-        get_token(zvt_config["jq_username"], zvt_config["jq_password"], force=True)
+        token = get_token(zvt_config["jq_username"], zvt_config["jq_password"], force=True)
+        self.logger.info("token is {}".format(token))
 
     def init_entities(self):
         super().init_entities()

@@ -1,3 +1,8 @@
+
+import sys
+import os
+sys.path.append(os.path.dirname(__file__) + "/../") 
+print(sys.path)
 # script to auto generate some files
 from zvt.autocode.generator import gen_kdata_schema, gen_exports
 from zvt.contract import AdjustType

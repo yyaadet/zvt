@@ -62,7 +62,7 @@ class JqChinaFundRecorder(Recorder):
                     df["exchange"] = "sz"
                     df_to_db(df, data_schema=Fund, provider=self.provider, force_update=self.force_update)
                     self.logger.info(
-                        f"persist fund {operate_mode_id} list success {start_timestamp} to {end_timestamp}"
+                        f"persist fund ID {operate_mode_id}, count {len(df)}, list success {start_timestamp} to {end_timestamp}"
                     )
 
                 if is_same_date(end_timestamp, now_pd_timestamp()):

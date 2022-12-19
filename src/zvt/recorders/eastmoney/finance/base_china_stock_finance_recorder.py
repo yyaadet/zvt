@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from jqdatapy.api import get_fundamentals, get_query_count
+from jqdatapy.api import get_fundamentals, get_query_count 
 
 from zvt.api.utils import to_report_period_type
 from zvt.contract.api import get_data
@@ -70,10 +70,11 @@ class BaseChinaStockFinanceRecorder(EastmoneyTimestampsDataRecorder):
             start_timestamp=start_timestamp,
             end_timestamp=end_timestamp,
         )
-
+        
         try:
-            self.logger.info(f"joinquant query count:{get_query_count()}")
+            df = get_query_count()
             self.fetch_jq_timestamp = True
+            self.logger.info(f"joinquant query count:{df}, fetch jq timestamp {self.fetch_jq_timestamp}")
         except Exception as e:
             self.fetch_jq_timestamp = False
             self.logger.warning(
@@ -138,6 +139,7 @@ class BaseChinaStockFinanceRecorder(EastmoneyTimestampsDataRecorder):
         # different with the default timestamps handling
         param = self.generate_request_param(entity, start, end, size, timestamps)
         self.logger.info("request param:{}".format(param))
+        print(f"param {param}")
 
         return self.api_wrapper.request(
             url=self.url, param=param, method=self.request_method, path_fields=self.generate_path_fields(entity)

@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+import sys
+import os
+sys.path.append(os.path.dirname(__file__) + "/../") 
+#print(sys.path)
+
 import importlib
 import json
 import logging
@@ -42,7 +47,7 @@ def init_log(file_name="zvt.log", log_dir=None, simple_formatter=True):
     file_log_handler.setLevel(logging.INFO)
 
     console_log_handler = logging.StreamHandler()
-    console_log_handler.setLevel(logging.INFO)
+    console_log_handler.setLevel(logging.WARNING)
 
     # create formatter and add it to the handlers
     if simple_formatter:
@@ -100,7 +105,7 @@ def init_env(zvt_home: str, **kwargs) -> dict:
     if not os.path.exists(zvt_env["log_path"]):
         os.makedirs(zvt_env["log_path"])
 
-    init_log()
+    init_log(simple_formatter=False)
 
     pprint.pprint(zvt_env)
 
@@ -135,7 +140,7 @@ def init_config(pkg_name: str = None, current_config: dict = None, **kwargs) -> 
             if os.path.exists(sample_config):
                 copyfile(sample_config, config_path)
         except Exception as e:
-            logger.warning(f"could not load config.json from package {pkg_name}")
+            logger.warning(f"could not load config.json from package {pkg_name}: {e}")
 
     if os.path.exists(config_path):
         with open(config_path) as f:

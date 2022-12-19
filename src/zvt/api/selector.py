@@ -283,10 +283,12 @@ if __name__ == "__main__":
     print(df)
 # the __all__ is generated
 __all__ = [
+    "get_entity_ids_by_filter",
     "get_dragon_and_tigger_player",
     "get_big_players",
     "get_player_performance",
     "get_player_success_rate",
+    "get_players",
     "get_good_players",
     "get_entity_list_by_cap",
     "get_big_cap_stock",

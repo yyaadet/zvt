@@ -1,3 +1,8 @@
+import sys
+import os
+sys.path.append(os.path.dirname(__file__) + "/../") 
+print(sys.path)
+
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 from dash.dependencies import Input, Output
@@ -27,7 +32,7 @@ def serve_layout():
     return layout
 
 
-@zvt_app.callback(Output("card-content", "children"), [Input("card-tabs", "active_tab")])
+@zvt_app.callback(Output("card-content", "children"), [Input("card-tabs", "active_tab")], log=True)
 def tab_content(active_tab):
     if "tab-factor" == active_tab:
         return factor_app.factor_layout()
