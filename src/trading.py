@@ -4,7 +4,7 @@ import numpy as np
 import logging
 import datetime
 import math
-from download import download
+from constants import FUND_OUTPUT, STOCK_OUTPUT
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s-%(levelname)s %(filename)s:%(lineno)s:: %(message)s")
@@ -112,9 +112,12 @@ class Strategy:
 
 class AlphaModel:
 
-    def __init__(self, entity_id: str, df: pd.DataFrame) -> None:
+    def __init__(self, entity_id: str, df: pd.DataFrame, use_adx:bool) -> None:
         self.entity_id = entity_id
         self.df = df[df["entity_id"] == entity_id]
+        self.df = self.df.reset_index()
+        self.use_adx = use_adx
+        print("{} df size {}".format(self.entity_id, self.df.shape))
 
     def get_MAs(self):
         self.df["ma10"] = self.df["close"].rolling(10).mean()
@@ -122,7 +125,7 @@ class AlphaModel:
         self.df["ma50"] = self.df["close"].rolling(50).mean()
         self.df["ma100"] = self.df["close"].rolling(100).mean()
         self.df["ma200"] = self.df["close"].rolling(200).mean()
-        logger.info("df\n{}".format(self.df[["name", "timestamp", "ma10", "ma20", "ma50", "ma100", "ma200"]].tail()))
+        logger.info("MA df\n{}".format(self.df[["name", "timestamp", "ma10", "ma20", "ma50", "ma100", "ma200"]]))
 
     def get_ADX(self):
         high = self.df['high']
@@ -150,12 +153,14 @@ class AlphaModel:
         self.df['plus_di'] = plus_di
         self.df['minus_di'] = minus_di
         self.df['adx'] = adx_smooth
-        logger.info("df \n{}".format(self.df[["name", "timestamp", "adx", "plus_di", "minus_di"]].tail()))
+        logger.info("ADX df \n{}".format(self.df[["name", "timestamp", "adx", "plus_di", "minus_di"]].tail()))
         return plus_di, minus_di, adx_smooth
 
     def get_trade_signal(self, when, lookback=5):
         prev_df = self.df[self.df["timestamp"] < when].tail(lookback)
-        logger.info("{} prev df\n{}".format(when, prev_df[["name", "timestamp", "adx", "ma10", "ma20", "ma50", "ma100", "ma200"]]))
+        logger.info("{} tail df\n{}".format(
+            when.date(), 
+            prev_df[["name", "timestamp", "adx", "ma10", "ma20", "ma50", "ma100", "ma200"]]))
 
         adx_signals = []
         trade_signals = []
@@ -181,13 +186,16 @@ class AlphaModel:
         df = df.reset_index()
         last_close = None
         logger.info("back test df shape {}".format(df.shape))
+        if df.empty:
+            logger.warning("back test df is empty, return")
+            return
 
         for idx, row in df.iterrows():
             day = row['timestamp']
             close = row['close']
             last_close = close
             adx_signals, trade_signals = self.get_trade_signal(day)
-            if all(adx_signals) is False:
+            if self.use_adx and all(adx_signals) is False:
                 logger.info("{} adx_signals is False, ignore".format(day))
                 continue
             
@@ -201,9 +209,10 @@ class AlphaModel:
             else:
                 logger.info("{} {}".format(day, TRADE_NONE))
 
-        strategy.summary(last_close)
-
-
+        summary_df = strategy.summary(last_close)
+        dt_format = "%Y%m%d"
+        summary_output = "summary_{}_{}_{}_{}.csv".format(self.entity_id, start.strftime(dt_format), end.strftime(dt_format), self.use_adx)
+        summary_df.to_csv(summary_output)
 
 
 @click.group()
@@ -217,12 +226,14 @@ def cli(ctx):
 @click.option("--entity-id", default="stock_sz_300750", help="The entity id")
 @click.option("--start", default="2020-01-01", help="format: yyyy-mm-dd")
 @click.option("--end", default="2022-12-12", help="format: yyyy-mm-dd")
-def backtest(path, entity_id, start, end):
+@click.option("--use-adx", default=1, help="You can input 0 or 1")
+def backtest(path, entity_id, start, end, use_adx):
     global all_df
 
-    all_df = pd.read_csv(path)
-    all_df['timestamp'] = all_df['timestamp'].apply(lambda x: datetime.datetime.strptime(x, "%Y-%m-%d"))
-    alpha = AlphaModel(entity_id, all_df)
+    use_adx = bool(int(use_adx))
+    all_df = pd.read_csv(path, dtype={'entity_id': str}, index_col=False)
+    all_df['timestamp'] = pd.to_datetime(all_df['timestamp'], format="%Y-%m-%d")
+    alpha = AlphaModel(entity_id, all_df, use_adx)
     alpha.get_MAs()
     alpha.get_ADX()
 
@@ -235,9 +246,11 @@ def backtest(path, entity_id, start, end):
 def summary():
     global all_df
 
-    path = download()
-    all_df = pd.read_csv(path)
-    all_df['timestamp'] = all_df['timestamp'].apply(lambda x: datetime.datetime.strptime(x, "%Y-%m-%d"))
+    stock_df = pd.read_csv(STOCK_OUTPUT, dtype={'entity_id': str}, index_col=False)
+    fund_df = pd.read_csv(FUND_OUTPUT, dtype={'entity_id': str}, index_col=False)
+    all_df = pd.concat([stock_df, fund_df])
+    print(all_df.head())
+    all_df['timestamp'] = pd.to_datetime(all_df['timestamp'])
     all_df.loc[:, "market_value"] = all_df["close"] * all_df["volume"]
 
     s_df = all_df.groupby(["entity_id", "name"]).agg(
