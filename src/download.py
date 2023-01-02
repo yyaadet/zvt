@@ -16,7 +16,7 @@ STOCK_NAMES = [
 FUND_NAMES = {
     "008280": "国泰中证煤炭ETF联接C",
     "014111": "嘉实中证稀有金属主题ETF发起联接C",
-    "161032": "富国中证煤炭指数LOF",
+    "sz161032": "富国中证煤炭指数LOF",
 }
 
 
@@ -40,15 +40,23 @@ def download_fund():
     fund_df_map = {}
     for fund_id, fund_name in FUND_NAMES.items():
         fund_df = ak.fund_open_fund_info_em(fund=fund_id, indicator="单位净值走势")
-        fund_df = fund_df.rename(columns={"净值日期": "timestamp", "单位净值": "close"})
-        fund_df = fund_df[['timestamp', "close"]]
-        fund_df['entity_id'] = fund_id
-        fund_df['name'] = fund_name
-        fund_df['open'] = None
-        fund_df['high'] = None
-        fund_df['low'] = None
-        fund_df['volume'] = None
-        fund_df_map[fund_id] = fund_df
+        if len(fund_df) > 0:
+            fund_df = fund_df.rename(columns={"净值日期": "timestamp", "单位净值": "close"})
+            fund_df = fund_df[['timestamp', "close"]]
+            fund_df['entity_id'] = fund_id
+            fund_df['name'] = fund_name
+            fund_df['open'] = None
+            fund_df['high'] = None
+            fund_df['low'] = None
+            fund_df['volume'] = None
+            fund_df_map[fund_id] = fund_df
+        else:
+            fund_df = ak.fund_etf_hist_sina(fund_id)
+            if len(fund_df) > 0:
+                fund_df = fund_df.rename(columns={"date": "timestamp"})
+                fund_df['name'] = fund_name
+                fund_df['entity_id'] = fund_id
+                fund_df_map[fund_id] = fund_df
     
     all_df = pd.concat(fund_df_map.values())
     all_df = all_df.reset_index()

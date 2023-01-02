@@ -14,7 +14,9 @@ library(dashTable)
 setwd("/Users/pengxiaotao/Documents/gitroom/zvt/src/app")
 
 # load all data
-df = read.csv("../rmd/coal.csv")
+#stock_df = read.csv("../rmd/coal.csv")
+fund_df = read.csv("../rmd/coal_fund.csv")
+df = fund_df
 df$timestamp = as.Date(df$timestamp)
 df$name = py(df$name, dic = pydic(only_first_letter = T, method = "toneless", dic = "pinyin"), sep = "")
 df$market_value = df$close * df$volume
